@@ -1,7 +1,6 @@
 # A plugin for adding 'recently_pinged_on' option to MTEntries container
-#                   by Hirotaka Ogawa (http://as-is.net/blog/)
 #
-# Release 0.11 (Jan 29, 2005)
+# Release 0.12 (Feb 06, 2005)
 #
 # This software is provided as-is. You may use it for commercial or 
 # personal use. If you distribute it, please keep this notice intact.
@@ -14,7 +13,7 @@ use vars qw($mt_hdlr_entries);
 if (MT->can('add_plugin')) {
     require MT::Plugin;
     my $plugin = new MT::Plugin();
-    $plugin->name("recently_pinged_on Plugin 0.11");
+    $plugin->name("recently_pinged_on Plugin 0.12");
     $plugin->description("Add 'recently_ping_on' option to MTEntries container");
     $plugin->doc_link("http://as-is.net/hacks/2005/01/recently_pinged_on_plugin.html");
     MT->add_plugin($plugin);
@@ -28,12 +27,13 @@ if (MT->can('add_plugin')) {
 
 sub hdlr_entries {
     my ($ctx, $args, $cond) = @_;
+    my $recently_pinged_on = $args->{recently_pinged_on} or
+	return &$mt_hdlr_entries(@_);
 
-    my $recently_pinged_on = $args->{recently_pinged_on};
-    return &$mt_hdlr_entries($ctx, $args, $cond) unless $recently_pinged_on;
+    my $blog_id = $ctx->stash('blog_id');
 
     require MT::TBPing;
-    my $iter = MT::TBPing->load_iter({ blog_id => $ctx->stash('blog_id') },
+    my $iter = MT::TBPing->load_iter({ blog_id => $blog_id },
 				     { sort => 'created_on',
 				       direction => 'descend' });
     my @entries = ();
@@ -44,29 +44,36 @@ sub hdlr_entries {
 	next if exists($temp{$tb_id});
 
 	require MT::Trackback;
-	my $trackback = MT::Trackback->load($tb_id);
-	my $entry_id = $trackback->entry_id or next;
-
 	require MT::Entry;
-	my $entry = MT::Entry->load($entry_id);
-	next if $entry->status != MT::Entry::RELEASE();
-
+	my @args = ({ status => MT::Entry::RELEASE() },
+		    { join => ['MT::Trackback', 'entry_id', { id => $tb_id }] });
+	my $entry = MT::Entry->load(@args) or next;
 	push(@entries, $entry);
 	last if ++$count == $recently_pinged_on;
 	$temp{$tb_id} = ();
     }
 
+    my $res = '';
     my $tokens = $ctx->stash('tokens');
     my $builder = $ctx->stash('builder');
-    my $res = '';
-    my $saved_entry = $ctx->stash('entry');
+    my $i = 0;
     for my $e (@entries) {
-	$ctx->stash('entry', $e);
-	defined(my $out = $builder->build($ctx, $tokens))
-	    or return $ctx->error($ctx->errstr);
+	local $ctx->{__stash}{entry} = $e;
+	local $ctx->{current_timestamp} = $e->created_on;
+	local $ctx->{modification_timestamp} = $e->modified_on;
+	my $out = $builder->build($ctx, $tokens, {
+	    %$cond,
+	    EntryIfExtended => $e->text_more ? 1 : 0,
+	    EntryIfAllowComments => $e->allow_comments,
+	    EntryIfCommentsOpen => $e->allow_comments && $e->allow_comments eq '1',
+	    EntryIfAllowPings => $e->allow_pings,
+	    EntriesHeader => !$i,
+	    EntriesFooter => !defined $entries[$i+1]
+	    });
+	return $ctx->error($ctx->errstr) unless defined $out;
 	$res .= $out;
+	$i++;
     }
-    $ctx->stash('entry', $saved_entry);
     $res;
 }
 
