@@ -1,6 +1,6 @@
 # A plugin for adding 'recently_pinged_on' option to MTEntries container
 #
-# Release 0.16 (Feb 19, 2005)
+# Release 0.17 (Mar 6, 2005)
 #
 # This software is provided as-is. You may use it for commercial or 
 # personal use. If you distribute it, please keep this notice intact.
@@ -10,10 +10,11 @@
 use strict;
 use vars qw($mt_hdlr_entries);
 
-if (MT->can('add_plugin')) {
+eval("use Storable;");
+if (!$@ && MT->can('add_plugin')) {
     require MT::Plugin;
     my $plugin = new MT::Plugin();
-    $plugin->name("recently_pinged_on Plugin 0.16");
+    $plugin->name("recently_pinged_on Plugin 0.17");
     $plugin->description("Add 'recently_ping_on' option to MTEntries container");
     $plugin->doc_link("http://as-is.net/hacks/2005/01/recently_pinged_on_plugin.html");
     MT->add_plugin($plugin);
