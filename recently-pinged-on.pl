@@ -1,7 +1,7 @@
 # A plugin for adding 'recently_pinged_on' option to MTEntries container
 #                   by Hirotaka Ogawa (http://as-is.net/blog/)
 #
-# Release 0.10 (Jan 29, 2005)
+# Release 0.11 (Jan 29, 2005)
 #
 # This software is provided as-is. You may use it for commercial or 
 # personal use. If you distribute it, please keep this notice intact.
@@ -14,7 +14,7 @@ use vars qw($mt_hdlr_entries);
 if (MT->can('add_plugin')) {
     require MT::Plugin;
     my $plugin = new MT::Plugin();
-    $plugin->name("recently_pinged_on Plugin 0.10");
+    $plugin->name("recently_pinged_on Plugin 0.11");
     $plugin->description("Add 'recently_ping_on' option to MTEntries container");
     $plugin->doc_link("http://as-is.net/hacks/2005/01/recently_pinged_on_plugin.html");
     MT->add_plugin($plugin);
@@ -40,17 +40,20 @@ sub hdlr_entries {
     my %temp = ();
     my $count = 0;
     while (my $tbping = $iter->()) {
+	my $tb_id = $tbping->tb_id;
+	next if exists($temp{$tb_id});
+
 	require MT::Trackback;
+	my $trackback = MT::Trackback->load($tb_id);
+	my $entry_id = $trackback->entry_id or next;
+
 	require MT::Entry;
-        my $trackback = MT::Trackback->load($tbping->tb_id);
-        my $entry_id = $trackback->entry_id;
-	if (!exists($temp{$entry_id})) {
-	    my $entry = MT::Entry->load($entry_id);
-	    next if $entry->status != MT::Entry::RELEASE();
-	    push(@entries, MT::Entry->load($entry_id));
-	    $temp{$entry_id} = ();
-	    last if ++$count == $recently_pinged_on;
-	}
+	my $entry = MT::Entry->load($entry_id);
+	next if $entry->status != MT::Entry::RELEASE();
+
+	push(@entries, $entry);
+	last if ++$count == $recently_pinged_on;
+	$temp{$tb_id} = ();
     }
 
     my $tokens = $ctx->stash('tokens');
