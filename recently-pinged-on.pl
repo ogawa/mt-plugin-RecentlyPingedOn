@@ -1,6 +1,6 @@
 # A plugin for adding 'recently_pinged_on' option to MTEntries container
 #
-# Release 0.12 (Feb 06, 2005)
+# Release 0.15 (Feb 12, 2005)
 #
 # This software is provided as-is. You may use it for commercial or 
 # personal use. If you distribute it, please keep this notice intact.
@@ -13,7 +13,7 @@ use vars qw($mt_hdlr_entries);
 if (MT->can('add_plugin')) {
     require MT::Plugin;
     my $plugin = new MT::Plugin();
-    $plugin->name("recently_pinged_on Plugin 0.12");
+    $plugin->name("recently_pinged_on Plugin 0.15");
     $plugin->description("Add 'recently_ping_on' option to MTEntries container");
     $plugin->doc_link("http://as-is.net/hacks/2005/01/recently_pinged_on_plugin.html");
     MT->add_plugin($plugin);
@@ -27,10 +27,15 @@ if (MT->can('add_plugin')) {
 
 sub hdlr_entries {
     my ($ctx, $args, $cond) = @_;
+    return &$mt_hdlr_entries(@_)
+	if $args->{lastn} || $args->{days} || $args->{recently_commented_on};
     my $recently_pinged_on = $args->{recently_pinged_on} or
 	return &$mt_hdlr_entries(@_);
 
     my $blog_id = $ctx->stash('blog_id');
+    my ($start, $end) = ($ctx->{current_timestamp},
+			 $ctx->{current_timestamp_end});
+    my $cat = $ctx->stash('archive_category');
 
     require MT::TBPing;
     my $iter = MT::TBPing->load_iter({ blog_id => $blog_id },
@@ -44,10 +49,16 @@ sub hdlr_entries {
 	next if exists($temp{$tb_id});
 
 	require MT::Trackback;
+	my $trackback = MT::Trackback->load($tb_id) or next;
+	my $entry_id = $trackback->entry_id or next;
+
 	require MT::Entry;
-	my @args = ({ status => MT::Entry::RELEASE() },
-		    { join => ['MT::Trackback', 'entry_id', { id => $tb_id }] });
-	my $entry = MT::Entry->load(@args) or next;
+	my $entry = MT::Entry->load($entry_id) or next;
+
+	next if $entry->status != MT::Entry::RELEASE();
+	next if $cat && !$entry->is_in_category($cat);
+	next if $start && $end && ($entry->created_on < $start || $entry->created_on > $end);
+
 	push(@entries, $entry);
 	last if ++$count == $recently_pinged_on;
 	$temp{$tb_id} = ();
