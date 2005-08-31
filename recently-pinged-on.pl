@@ -1,31 +1,35 @@
 # A plugin for adding 'recently_pinged_on' option to MTEntries container
 #
-# Release 0.17 (Mar 6, 2005)
+# $Id$
 #
 # This software is provided as-is. You may use it for commercial or 
 # personal use. If you distribute it, please keep this notice intact.
 #
 # Copyright (c) 2005 Hirotaka Ogawa
 
+package MT::Plugin::Recently_Pinged_On;
 use strict;
-use vars qw($mt_hdlr_entries);
+use MT;
+use vars qw($VERSION);
 
-eval("use Storable;");
-if (!$@ && MT->can('add_plugin')) {
+$VERSION = '0.18';
+
+eval {
     require MT::Plugin;
-    my $plugin = new MT::Plugin();
-    $plugin->name("recently_pinged_on Plugin 0.17");
-    $plugin->description("Add 'recently_ping_on' option to MTEntries container");
-    $plugin->doc_link("http://as-is.net/hacks/2005/01/recently_pinged_on_plugin.html");
+    my $plugin = new MT::Plugin({
+	name => 'recently_pinged_on',
+	description => "Add 'recently_ping_on' option to MTEntries container",
+	doc_link => 'http://as-is.net/hacks/2005/01/recently_pinged_on_plugin.html',
+	author_name => 'Hirotaka Ogawa',
+	author_link => 'http://profile.typekey.com/ogawa/',
+	version => $VERSION
+	});
     MT->add_plugin($plugin);
-}
+};
 
 use MT::Template::Context;
-{
-    local $SIG{__WARN__} = sub { };
-    $mt_hdlr_entries = \&MT::Template::Context::_hdlr_entries;
-    *MT::Template::Context::_hdlr_entries = \&hdlr_entries;
-}
+my $mt_hdlr_entries = \&MT::Template::Context::_hdlr_entries;
+MT::Template::Context->add_container_tag('Entries' => \&hdlr_entries);
 
 sub hdlr_entries {
     my ($ctx, $args, $cond) = @_;
