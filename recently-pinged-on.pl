@@ -12,7 +12,7 @@ use strict;
 use MT;
 use vars qw($VERSION);
 
-$VERSION = '0.18';
+$VERSION = '0.19';
 
 eval {
     require MT::Plugin;
@@ -51,6 +51,7 @@ sub hdlr_entries {
     my %temp = ();
     my $count = 0;
     while (my $tbping = $iter->()) {
+	next if MT::TBPing->can('is_published') && !$tbping->is_published;
 	my $tb_id = $tbping->tb_id;
 	next if exists($temp{$tb_id});
 
